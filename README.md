@@ -54,3 +54,23 @@ sudo stty -F /dev/ttyACM0 9600 raw -clocal -echo
 sudo cat /dev/ttyACM0
 ```
 Note: deployment fails if this monitoring is active
+
+
+## Examples
+The RGB LED examples are actually somewhat interesting: the main challenge was utilizing analog write PWD functionality correctly to achieve arbitrary light colors, and then more challengely to attain smooth color transitions.
+
+The core RGB LED light code is in *src/utils.cpp*: the two important functions there implement static light colors and smooth color transitioning.
+The color multiplexing interval and duty cycle constants defined in **color_settings.h** are essential to achieving stable, non-flickering color light output.
+Some time was spent experimenting with these values for my device:
+you may have to slightly adjust these values until you are satisfied with the light stability.
+
+Note that the "Serial" functionality is disabled for performance reasons, but should be turned on during development: it's quite useful while testing.
+
+The RGB LED functionality is demoed through several "light shows":
+* Boring - shows a given color with a specified on and off interval
+* Simple Transition - transitions smoothly between two given colors at a specified interval
+* Random Transition - transition smoothly between random colors at a specified interval
+
+These shows are setup in *src/shows.cpp* and chosen in the *setup_loop.cpp* entrypoint.
+The random is by far the most interesting to me: I actually enjoy staring at it as some sort of mood light :)
+
