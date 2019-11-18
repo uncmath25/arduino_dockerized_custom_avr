@@ -16,7 +16,8 @@ GCC_COMPILE_FLAGS=-MMD -mmcu=$(AVR_MCU_ARCHITECTURE) -Wall -DF_CPU=16000000L -Wa
 GCC_LINKING_FLAGS=-mmcu=$(AVR_MCU_ARCHITECTURE) -Wl,--gc-sections -Os
 HEX_CONVERSION_FLAGS=-O ihex -R .eeprom
 
-ARDUINO_CORE_C_FILES = hooks wiring wiring_digital wiring_analog
+ARDUINO_CORE_C_FILES = hooks wiring wiring_analog wiring_digital
+ARDUINO_CORE_CPP_FILES = HardwareSerial HardwareSerial0 Print WMath
 
 all: clean import-lib build-lib build-project deploy
 
@@ -52,6 +53,17 @@ build-lib:
 			-v \
 			$(LIB_DIR)/$(ARDUINO_CORE_PATH)/$$file.c; \
 	done
+	for file in $(ARDUINO_CORE_CPP_FILES); do \
+		avr-g++ \
+			-c \
+			-I $(LIB_DIR)/$(ARDUINO_CORE_PATH) \
+			-I $(LIB_DIR)/$(ARDUINO_VARIANT_PATH) \
+			-x c++ \
+			-o $(LIB_DIR)/$(BUILD_DIR)/$$file.o \
+			$(GCC_COMPILE_FLAGS) \
+			-v \
+			$(LIB_DIR)/$(ARDUINO_CORE_PATH)/$$file.cpp; \
+	done
 	avr-ar rcs \
 		$(ARDUINO_LIBRARY_PATH) \
 		$(LIB_DIR)/$(BUILD_DIR)/*.o \
@@ -64,7 +76,6 @@ build-project: clean
 		-c \
 		-I $(LIB_DIR)/$(ARDUINO_CORE_PATH) \
 		-I $(LIB_DIR)/$(ARDUINO_VARIANT_PATH) \
-		-I $(CODE_DIR) \
 		-x c++ \
 		$(GCC_COMPILE_FLAGS) \
 		-v \

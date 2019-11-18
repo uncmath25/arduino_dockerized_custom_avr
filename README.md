@@ -45,3 +45,12 @@ Running `make build-project` accomplishes:
 
 ## Upload Process
 Running `make deploy` uploads the hex build artifact to the Arduino via the **avrdude** cli utility, using the board-specific configurations.
+
+
+## Monitoring
+The following code allows monitoring the serial output from the Arduino:
+```
+sudo stty -F /dev/ttyACM0 9600 raw -clocal -echo
+sudo cat /dev/ttyACM0
+```
+Note: deployment fails if this monitoring is active

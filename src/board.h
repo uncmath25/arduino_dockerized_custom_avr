@@ -1,3 +1,5 @@
+const int BAUD_RATE = 9600;
+
 const int LED_ANODE = 9;
 const int LED_RED_CATHODE = 5;
 const int LED_GREEN_CATHODE = 6;
