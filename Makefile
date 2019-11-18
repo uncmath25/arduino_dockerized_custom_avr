@@ -1,106 +1,34 @@
-.PHONY: clean import-lib build-lib build-project deploy
+.PHONY: build deploy monitor
 
-CODE_DIR=src
-LIB_DIR=lib
-BUILD_DIR=build
-
-ARDUINO_LIBRARY_PATH=$(LIB_DIR)/$(BUILD_DIR)/lib.a
-ARDUINO_CORE_PATH=arduino_core/cores/arduino
-ARDUINO_VARIANT_PATH=arduino_core/variants/standard
+IMAGE_NAME := uncmath25/arduino-custom-avr
 
 ARDUINO_USB_DEVICE=/dev/ttyACM0
 BAUD_RATE=115200
 AVR_MCU_ARCHITECTURE=atmega328p
 
-GCC_COMPILE_FLAGS=-MMD -mmcu=$(AVR_MCU_ARCHITECTURE) -Wall -DF_CPU=16000000L -Wall -Os
-GCC_LINKING_FLAGS=-mmcu=$(AVR_MCU_ARCHITECTURE) -Wl,--gc-sections -Os
-HEX_CONVERSION_FLAGS=-O ihex -R .eeprom
+all: build deploy
 
-ARDUINO_CORE_C_FILES = hooks wiring wiring_analog wiring_digital
-ARDUINO_CORE_CPP_FILES = HardwareSerial HardwareSerial0 Print WMath
-
-all: clean import-lib build-lib build-project deploy
-
-clean:
-	@echo "*** Cleaning repo of build artifacts ***"
-	rm -rf $(BUILD_DIR)
-	rm -f *.o
-	rm -f *.d
-	rm -f *.a
-
-import-lib:
-	@echo "*** Importing arduino library source code from Github ***"
-	rm -rf $(LIB_DIR)
-	mkdir $(LIB_DIR)
-	wget https://github.com/arduino/ArduinoCore-avr/archive/master.zip -O arduino_core.zip \
-		&& unzip arduino_core.zip \
-		&& mv ArduinoCore-avr-master $(LIB_DIR)/arduino_core \
-		&& rm arduino_core.zip
-	rm -f $(CODE_DIR)/main.cpp
-	cp $(LIB_DIR)/$(ARDUINO_CORE_PATH)/main.cpp $(CODE_DIR)/main.cpp
-
-build-lib:
-	@echo "*** Building arduino library ***"
-	rm -rf $(LIB_DIR)/${BUILD_DIR}
-	mkdir $(LIB_DIR)/$(BUILD_DIR)
-	for file in $(ARDUINO_CORE_C_FILES); do \
-		avr-gcc \
-			-c \
-			-I $(LIB_DIR)/$(ARDUINO_CORE_PATH) \
-			-I $(LIB_DIR)/$(ARDUINO_VARIANT_PATH) \
-			-o $(LIB_DIR)/$(BUILD_DIR)/$$file.o \
-			$(GCC_COMPILE_FLAGS) \
-			-v \
-			$(LIB_DIR)/$(ARDUINO_CORE_PATH)/$$file.c; \
-	done
-	for file in $(ARDUINO_CORE_CPP_FILES); do \
-		avr-g++ \
-			-c \
-			-I $(LIB_DIR)/$(ARDUINO_CORE_PATH) \
-			-I $(LIB_DIR)/$(ARDUINO_VARIANT_PATH) \
-			-x c++ \
-			-o $(LIB_DIR)/$(BUILD_DIR)/$$file.o \
-			$(GCC_COMPILE_FLAGS) \
-			-v \
-			$(LIB_DIR)/$(ARDUINO_CORE_PATH)/$$file.cpp; \
-	done
-	avr-ar rcs \
-		$(ARDUINO_LIBRARY_PATH) \
-		$(LIB_DIR)/$(BUILD_DIR)/*.o \
-		-v
-
-build-project: clean
-	@echo "*** Building rgb led project ***"
-	mkdir $(BUILD_DIR)
-	avr-g++ \
-		-c \
-		-I $(LIB_DIR)/$(ARDUINO_CORE_PATH) \
-		-I $(LIB_DIR)/$(ARDUINO_VARIANT_PATH) \
-		-x c++ \
-		$(GCC_COMPILE_FLAGS) \
-		-v \
-		$(CODE_DIR)/*.cpp
-	mv *.o $(BUILD_DIR)
-	mv *.d $(BUILD_DIR)
-	avr-gcc \
-		-lc -lm \
-		$(GCC_LINKING_FLAGS) \
-		-o $(BUILD_DIR)/main.elf \
-		-v \
-		$(BUILD_DIR)/*.o $(ARDUINO_LIBRARY_PATH)
-	avr-objcopy \
-		$(HEX_CONVERSION_FLAGS) \
-		-v \
-		$(BUILD_DIR)/main.elf \
-		$(BUILD_DIR)/main.hex
+build:
+	@echo "*** Building project in Docker image ***"
+	docker build -t $(IMAGE_NAME) .
 
 deploy:
-	@echo "*** Deploying compiled project to Arduino ***"
-	sudo avrdude \
-		-U flash:w:$(BUILD_DIR)/main.hex \
+	@echo "*** Deploying to Arduino using Docker image build artifacts ***"
+	sudo docker run \
+		-it \
+		--rm \
+		--device=$(ARDUINO_USB_DEVICE) \
+		$(IMAGE_NAME) \
+		avrdude \
+		-U flash:w:build/main.hex \
 		-p $(AVR_MCU_ARCHITECTURE) \
 		-c arduino \
 		-P $(ARDUINO_USB_DEVICE) \
 		-b $(BAUD_RATE) \
 		-D \
 		-v
+
+monitor:
+	@echo "*** Monitoring Arduino on usb device ***"
+	sudo stty -F /dev/ttyACM0 9600 raw -clocal -echo
+	sudo cat /dev/ttyACM0
